@@ -1,68 +1,330 @@
-ansible all --list-hosts  === to know all the hosts available
+- hosts: all
+  vars_files:
+    - http_var.yml
+
+  tasks:
+    - name: "creating a mount point directory for cdrom"
+      file:
+            state: directory
+            path: "{{ dvd_dir }}" 
+  
+    - mount:
+            src: "/dev/cdrom"
+            path: "{{ dvd_dir }}"
+            state: mounted
+            fstype: "iso9660" 
+
+    - yum_repository: 
+            baseurl: "{{ dvd_dir }}/AppStream"
+            name: "mydvd1"
+            description: "myyum dvd1 for package"
+            gpgcheck: no
+
+    - yum_repository:
+            baseurl: "{{ dvd_dir }}/BaseOS"
+            name: "mydvd2"
+            description: "myyum dvd2 for package" 
+            gpgcheck: no
+
+    - package:
+            name: "httpd"
+            state: "present"
+
+    - name: "document root for web"
+      file: 
+            state: directory
+            path: "{{ doc_root }}"
+            
+    - template:
+            dest: "/etc/httpd/conf.d/lw.conf"
+            src: "lw.conf"
+
+    - copy:
+            dest: "{{ doc_root }}/index.html"
+            content: "HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR HAR MAHADEV\nJAI SHREE RAM"
+
+    - service: 
+            name: "httpd"
+            state: restarted
+            enabled: yes
+
+    - firewalld:
+            port: "{{ http_port }}/tcp"
+            state: enabled
+            permanent: yes
+            immediate: yes
+
+it is always good to set dynamic environment so that it ease our work also set the name of the task so that when we run ansible-playbook command we can do it correctly and more effeciently
 
 
 
-configuration file directives||         command-line option
-
-inventory                               -i
-remote_user                             -u
-become                                  --become, -b
-become_method                           --become-method
-become_user                             --become-user
-become_ask_pass                         --ask-become-pass, -k
 
 
-Where 
--m = Module name
--a = allow parameters
--u = username
+also we can set a new variable file so that if we have to change anything in playbook we dont have to go in our playbook instead we will go to our variable file which is stated below
 
 
-ansible 127.0.0.1 -m file -a "dest=/opt/a.txt mode=600 state=touch"
-ansible 127.0.0.1 -m file -a "dest=/opt/a.txt mode=600 state=touch"
-ansible 127.0.0.1 -m file -a "dest=/opt/a.txt mode=600 state=touch owner=ec2-user"
-ansible 127.0.0.1 -m file -a "dest=/opt/b.txt mode=755 state=touch owner=ec2-user"
-ansible 127.0.0.1 -m file -a "dest=/opt/c.txt mode=755 state=touch owner=ec2-user"
-ansible 127.0.0.1 -m file -a "dest=/opt/bmc.txt mode=755 owner=ec2-user"
+in file vim http_var.yml
 
-ansible localhost -m file -a "dest=/opt/bmcdir mode=755 owner=ec2-user group=ec2-user state=directory"
+dvd_dir: "/dvd5"
+doc_root: "/var/www/veer"
+http_port: 8080
 
-ansible 127.0.0.1 -m yum -a "name=httpd state=present"
-ansible 127.0.0.1 -m yum -a "name=httpd state=absent"
 
-ansible 127.0.0.1 -m service -a "name=httpd state=started"
-ansible 127.0.0.1 -m service -a "name=httpd state=stopped"
 
-ansible 127.0.0.1 -m command -a "/bin/yum update -y"
-ansible 127.0.0.1 -a "/bin/yum update -y"
 
-ansible 127.0.0.1 -m copy -a "src=/opt/index.html dest=/var/www/html/index.html"
 
-ansible 127.0.0.1 -m setup
 
-# Commands used in Hands-On-Ansible Mod5 Exercise 1
 
-# Install Apache
-$ ansible webservers -i inventory -m yum -a "name=httpd state=present" --sudo
 
-# Start Apache
-$ ansible webservers -i inventory -m service -a "name=httpd enabled=yes state=started" --sudo
 
-# Install MySQL
-$ ansible dbservers -i inventory -m yum -a "name=mysql-server state=present" --sudo
+==============================================================================================
 
-# Start MySQL
-$ ansible dbservers -i inventory -m service -a "name=mysqld enabled=yes state=started" --sudo
 
-# Stop IPTables on all systems
-$ ansible webservers:dbservers -i inventory -m service -a "name=iptables enabled=no state=stopped" --sudo
 
-$ ansible servers -a "/sbin/reboot" 
 
-$ ansible all -m user -a "name=foo password="
 
-$ ansible webservers -m git -a "repo=https://foo.example.org/repo.git dest=/srv/myapp version=HEAD"
 
-$ ansible all -m user -a "name=foo state=absent"
+
+
+                                        HTTP ATUHENTICATION
+
+
+
+
+- hosts: all
+  tasks:
+      - package:
+              name: "httpd"
+              state: "present" 
+      - copy:
+              dest: /var/www/html/index.html
+              content: JAI SHREE RAMMMM
+      - service: 
+              name: httpd
+              state: restarted
+              enabled: yes
+      - replace:
+              path: /etc/httpd/conf/httpd.conf
+              regexp: "AllowOverride nono"
+              replace: "AllowOverride AuthConfig"
+      - copy: 
+              dest: "/var/www/html/.htaccess"
+              src: ".htaccess"
+      - package:
+              name: "python36"
+      - pip:
+              name: "passlib"
+      - htpasswd:
+              path: "/etc/www.passwd"
+              name: "veer"
+              password: "redhat"
+      - service:
+              name: "httpd"
+              state: restarted
+              enabled: yes
+
+
+
+here we have to install pip3 install passlib
+also we have to make entry in .htaccess file
+vim .htaccess
+authname "lw website"
+authtype basic
+authuserfile /etc/www.passwd
+require valid-user
+
+
+
+
+
+==============================================================================================
+
+
+
+ 
+
+
+PLAYBOOK USING JINJA 
+
+
+first we have to create a file then
+vim test.txt
+
+{% for i in db %}
+hye this is {{ i }}
+{% endfor %}
+
+then in playbook
+
+vim y.yml
+
+
+- hosts: 10.0.2.10
+  vars:
+            db:
+              - "veer"
+              - "singh"
+              - "umath"
+              - "kanha"
+  tasks:
+          - template:
+                  dest: "/root"
+                  src: "test.txt"
+
+
+
+then we will get output on target node
+
+hye this is veer
+hye this is singh
+hye this is umath
+hye this is kanha
+
+
+
+
+
+
+============================================================================================
+
+
+
+here we are doing that if we dont no in which os we are installing an package than this is reallly helpfull in when command is used if there is any os of redhat or centos or ubuntu we can easily install it also by ansible_facts command we can know the os in which we will install it
+
+
+ansible ip -m setup | less
+
+
+
+- hosts: myws4
+  vars:
+     - os_name: "{{ ansible_facts['distribution'] }}"
+     - x: "veer"      
+  tasks:
+     - package:
+             name: "httpd"
+             state: "present"
+       when: os_name == "CentOS"
+
+     - debug:
+             var: os_name
+
+
+==================================================================================================
+
+
+if we want to copy any image from want to get from http we can get by this command
+
+
+- get_url:
+       url: 
+       dest: 
+
+========================================================================================
+
+
+if we have any doubt while running ansible playbook then we can write a command in which that particular thing would be not run or it will check if its right it will run and if its not it will show error but other commands in playbook will run as usaual
+
+
+ignore_errors: yes
+
+
+
+
+=================================================================================================
+
+
+
+By ansible we can send mail also to other persons
+
+vim mail.yml
+
+Vault password: 
+- hosts: 127.0.0.1
+  vars_files:
+    - mysecret.yml      
+  tasks:
+    - name: Sending an e-mail using Gmail SMTP servers
+      mail:
+        host: smtp.gmail.com
+        port: "587"
+        username: "{{ u }}"
+        password: "{{ p }}"
+        to: iteinfotech@gmail.com
+        subject: testing
+        body: lw testing...
+
+in mysecret.yml file
+
+u: "chandravirsinghumath@gmail.com"
+p: "Um@thcvs1996"
+
+
+
+to send mail through ansible we also have to google less secure app and switch on it
+
+===========================================================================================
+
+
+				ANSIBLE VAULT
+
+
+
+we can encrypt any file through ansible-vault 
+ansible-vault encryt mysecret.yml
+[it will ask for password two times]
+
+we can view it by ansible-vault view mysecret.yml
+
+
+also we can encrypt any playbook file
+
+ansible-vault encrypt mail.yml
+and if we have to run this playbook file
+
+ansible-vault --ask-vault-password   [ by this command we can run our playbook file ]
+
+
+
+
+
+============================================================================================
+
+
+
+						LOOP
+
+IN loop we can install packages or can do any other things like creating users or some other things in a single variable which makes ansible more reliable 
+
+
+
+- hosts: 172.25.254.223
+  vars:
+     - x:
+             - "httpd"
+             - "php"
+             - "docker"
+             - "podman"
+  tasks:
+     - package:
+             name: "{{ item }}"
+             state: present
+       loop: "{{ x }}"
+
+     - debug:
+             var: x
+
+
+=========================================================================================
+
+					ROLES
+
+
+For Roles we have to first make entry in /etc/ansible/ansible.cfg file
+
+ansible-galaxy role init /etc/ansible/roles [here ansible-galaxy role initcmd is used to creat a role]
+or also we can create role by going in that command /etc/ansible/roles
+
+ansible-galaxy role list [ it is used to see the roles available]
 
 
